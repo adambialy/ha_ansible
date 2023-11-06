@@ -51,7 +51,8 @@ Full List of Resources:
 Daemon Status:
   corosync: active/enabled
   pacemaker: active/enabled
-  pcsd: active/enabled```
+  pcsd: active/enabled
+```
 
 
 
