@@ -22,12 +22,11 @@ scenario:
 ansible
 -------
 
-All variables configured in inventory file
+All variables configured in [inventory file](ansible/ha_cluster_inventory.yaml)
 
 ansible run:
 
 ansible-playbook ha_cluster.yaml -i ha_cluster_inventory.yaml
-
 
 After succesful run, you should have situation like this:
 
