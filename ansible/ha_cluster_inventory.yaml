@@ -1,0 +1,33 @@
+---
+all:
+  hosts:
+  children:
+    aio:
+      vars:
+        vips:
+          - name: dns #service running
+            vip_ip: 192.168.69.203
+            vip_prefer: v01 #prefered node
+            vip_int: ens160 #interface
+            vip_service: named
+          - name: ldap
+            vip_ip: 192.168.69.204
+            vip_prefer: v02
+            vip_int: ens160
+            vip_service: haproxy
+      hosts:
+        v01:
+          ansibe_user: root
+          ansible_host: 192.168.69.201
+          ansible_python_interpreter: /usr/bin/python3
+          corosync_bind_interface: ens160
+          ha_leader: True # this variable is used only to run crm pcs commands
+        v02:
+          ansibe_user: root
+          ansible_host: 192.168.69.202
+          ansible_python_interpreter: /usr/bin/python3
+          corosync_bind_interface: ens160
+          ha_leader: False
+
+
+

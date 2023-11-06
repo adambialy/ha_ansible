@@ -1,0 +1,7 @@
+---
+
+- name: change password
+  ansible.builtin.user:
+    name: "hacluster"
+    state: present
+    password: $1$hacluste$dT13kDW7JQNL/K6ljbKsi0

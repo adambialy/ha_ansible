@@ -1,0 +1,120 @@
+---
+- name: Installing Packages
+  apt:
+    pkg:
+    - 'dnsutils'
+    - 'nmap'
+    - 'squidclient'
+    state: "present"
+
+#- name: copy scripts
+#  copy:
+#    src: "{{ role_path }}/files/scripts/{{ item.name }}"
+#    dest: "/usr/lib/ocf/resource.d/heartbeat/{{ item.name }}"
+#    group: 'root'
+#    owner: 'root'
+#    mode: '0755'
+#  loop: "{{ vips }}"
+#
+
+- name: create resources - vip 
+  shell: "pcs resource create vip-{{ item.name }} ocf:heartbeat:IPaddr2 ip={{ item.vip_ip }} cidr_netmask=24 op monitor interval=10s"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name: create resources - srv
+  shell: "pcs resource create srv-{{ item.name }} {{ item.pcs_module }}"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+
+#### squid
+###
+###- name: pcm squid config - vip
+###  shell: |
+###    pcs resource create vip-squid ocf:heartbeat:IPaddr2 ip=192.168.10.171 cidr_netmask=24 op monitor interval=10s --group grp-squid
+###  ignore_errors: yes
+###
+###- name: pcm squid config - service
+###  shell: |
+###    pcs resource create srv-squid ocf:heartbeat:Squid squid_exe="/usr/sbin/squid" squid_conf="/etc/squid/squid.conf" squid_pidfile="/var/run/squid.pid" squid_port=8080 op monitor timeout=30s interval=10s --group grp-squid
+###  ignore_errors: yes
+###
+####  shell: pcs resource create squid-service ocf:heartbeat:Squid squid_exe=string squid_conf=string squid_pidfile=string squid_port=integer op monitor timeout="30s" interval="10s" --group squid-group
+###
+####- name: pcm squid config ip
+#### pcs resource create service-squid systemd:squid op monitor interval=10s --group squid-group
+###
+###
+#### named
+###
+###- name: pcm named config - vip
+###  shell: | 
+###    pcs resource create vip-named ocf:heartbeat:IPaddr2 ip=192.168.10.172 cidr_netmask=24 op monitor interval=10s --group grp-named
+###  ignore_errors: yes
+###
+###- name: pcm named config - service 
+###  shell: |
+###    pcs resource create srv-named ocf:heartbeat:anything binfile=/usr/sbin/named cmdline_options='-f -u bind' pidfile='/var/run/named/named.pid' op monitor interval=20s --group grp-named
+###  ignore_errors: yes
+###
+###
+#### slapd
+###
+###- name: pcm slapd config - vip
+###  shell: |
+###    pcs resource create vip-slapd ocf:heartbeat:IPaddr2 ip=192.168.10.173 cidr_netmask=24 op monitor interval=10s --group grp-slapd
+###  ignore_errors: yes
+###
+###- name: pcm slapd config ip
+###  shell: |
+###    pcs resource create srv-slapd ocf:heartbeat:slapd op monitor OCF_CHECK_LEVEL="0" timeout="20s" interval="60s" --group grp-slapd
+###  ignore_errors: yes
+###
+###
+#### nexus
+###
+###- name: pcm nexus (docker) config - vip
+###  shell: |
+###    pcs resource create vip-nexus ocf:heartbeat:IPaddr2 ip=192.168.10.174 cidr_netmask=24 op monitor interval=10s --group grp-nexus
+###  ignore_errors: yes
+###
+###- name: pcm nexus (docker) config - service
+###  shell: |
+###    pcs resource create srv-nexus ocf:heartbeat:docker image=sonatype/nexus3 op monitor timeout="30" interval="30" --group grp-nexus
+###  ignore_errors: yes
+
+# constraints
+
+- name: set location constraints
+  shell: "pcs constraint location vip-{{ item.name }} prefers {{ item.vip_prefer }}=100 && pcs constraint location srv-{{ item.name }} prefers {{ item.vip_prefer }}=100 "
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name: set colocation constraints
+  shell: "pcs constraint colocation add vip-{{ item.name }} with srv-{{ item.name }} INFINITY"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name: set order constraints
+  shell: "pcs constraint order vip-{{ item.name }} then srv-{{ item.name }}"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name: set resource groups (probably optional) 
+  shell: "pcs resource group add grp-{{ item.name }} srv-{{ item.name }} vip-{{ item.name}}"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+

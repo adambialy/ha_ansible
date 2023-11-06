@@ -1,0 +1,9 @@
+- hosts: aio
+  roles:
+    - corosync-aio
+  vars:
+    debian_mirror: http://deb.debian.org/debian/
+    ubuntu_mirror: http://gb.archive.ubuntu.com/ubuntu/
+    TLSCACertificateFile: /root/ca.cert.pem
+    TLSCertificateKeyFile: /root/ha-aio.chi.swan.ac.uk.key.gnutls.pem
+    TLSCertificateFile: /root/ha-aio.chi.swan.ac.uk.cert.pem

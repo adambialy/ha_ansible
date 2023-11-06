@@ -1,0 +1,37 @@
+---
+
+- name: restart corosync
+  service:
+    name: "corosync"
+    state: "restarted"
+
+- name: disable corosync
+  service:
+    name: "corosync"
+    state: "disabled"
+
+- name: stop corosync
+  service:
+    name: "corosync"
+    state: "stopped"
+
+- name: restart pacemaker
+  service:
+    name: "pacemaker"
+    sleep: 10
+    state: "restarted"
+
+- name: enable pacemaker
+  service:
+    name: "pacemaker"
+    sleep: 10
+    state: "enabled"
+
+- name: stop pacemaker
+  service:
+    name: "pacemaker"
+    sleep: 10
+    state: "stopped"
+
+
+

@@ -1,0 +1,113 @@
+---
+
+- name: Create directory for pcmk
+  file:
+    path: "/etc/corosync/service.d"
+    state: directory
+    owner: "root"
+    group: "root"
+    mode: "0755"
+    
+- name: Copy pcmk config
+  copy:
+    src: "{{ role_path }}/files/corosync/service.d/pcmk"
+    dest: "/etc/corosync/service.d/pcmk"
+    owner: "root"
+    group: "root"
+    mode: "0640"
+
+- name: Grab Corosync Auth Key
+  slurp:
+    src: "{{ corosync_authkey_file }}"
+  register: "_corosync_authkey_"
+  changed_when: false
+  when:
+    - ha_leader
+
+- name: Configuring Corosync Auth Key On Non Leader
+  template:
+    src: "authkey.j2"
+    dest: "{{ corosync_authkey_file }}"
+    owner: "root"
+    group: "root"
+    mode: "u=r,g=,o="
+  when:
+    - not ha_leader
+
+- name: Configuring Corosync
+  template:
+    src: "corosync.conf.j2"
+    dest: "{{ corosync_config_file }}"
+    owner: "root"
+    group: "root"
+    mode: "u=rw,g=r,o=r"
+  notify:
+    - restart pacemaker
+  register: "_corosync_reconfigured"
+
+# Flush handlers
+- meta: flush_handlers
+  become: true
+
+- name: Enable and Start Pacemaker 
+  service:
+    name: 'pacemaker'
+    state: "started"
+    enabled: true
+
+- name: disable ShutTheOtherNodeInTheHead service 
+  shell: crm configure property stonith-enabled=false
+  ignore_errors: yes
+  when:
+    - ha_leader
+
+- name: Carry on even if there is no quorum 
+  shell: crm configure property no-quorum-policy=ignore
+  ignore_errors: yes
+  when:
+    - ha_leader
+
+- name: Cleanup (wonky I know)
+  shell: "for I in `pcs resource status | awk {'print $2'} | grep -v 'Resource'`; do pcs resource delete ${I}; done"
+  ignore_errors: yes
+
+
+- name: Add all vips
+  shell: "crm configure primitive vip-{{ item.name }} ocf:heartbeat:IPaddr2 params ip='{{ item.vip_ip }}' nic={{ item.vip_int }} cidr_netmask='32' op monitor interval='5s' meta migration-threshold='10'"
+  ignore_errors: yes
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name:  Start all vips
+  shell: "crm resource start vip-{{ item.name }}"
+  ignore_errors: yes
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name: set prefered node for vip 
+  shell: "pcs constraint location vip-{{ item.name }} prefers {{ item.vip_prefer }}=100"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+### TEST during next maintenance
+- name: add service resources 
+  shell: "pcs resource create srv-{{ item.vip_service }} systemd:{{ item.vip_service }}"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+- name: add service constraint - colocation
+  shell: "pcs constraint colocation add vip-{{ item.name }} with srv-{{ item.vip_service }} INFINITY"
+  with_items:
+    - "{{ vips }}"
+  when:
+    - ha_leader
+
+

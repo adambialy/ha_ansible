@@ -1,0 +1,6 @@
+---
+
+corosync_authkey_file: '/etc/corosync/authkey'
+corosync_bindnet_interface: 'ens192'
+corosync_config_file: '/etc/corosync/corosync.conf'
+
