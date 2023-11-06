@@ -116,7 +116,7 @@ all good.
 
 last look at the resources
 
-'''pcs resource config'''
+`pcs resource config`
 
 ```
 pcs resource config 
@@ -151,7 +151,7 @@ named-checkconf /etc/bind/named.conf
 /etc/bind/named.conf.options:24: missing ';' before '}'
 ```
 
-it is broke indeed, restart named
+it is broken indeed, restart named to make it fail
 
 ```
 systemctl restart named
@@ -193,9 +193,10 @@ named-checkconf /etc/bind/named.conf ; echo $?
 0
 ```
 
-config check ok.
+config check ok, all ready to revert back to original state.
 
-'''pcs resource cleanup'''
+
+`pcs resource cleanup`
 
 ```
 pcs resource cleanup srv-named
@@ -217,23 +218,22 @@ pcs status resources
 
 All back to original config.
 
+Lets test haproxy failing.
 
-Lets test haproxy failing
-
-currently node v02 replying:
+Currently node v02 replying:
 
 ```
 curl 192.168.69.202
 connection comming from - 192.168.69.202 
 ```
-and corresponding vip
+and to test corresponding vip:
 
 ```
 curl 192.168.69.204
 connection comming from - 192.168.69.202 
 ```
 
-Again, brake slightly config (add one letter to backend for example), and restart the service
+Again, brake slightly config (add one letter to backend for example), and restart the service.
 
 ```
 systemctl restart haproxy
@@ -258,6 +258,7 @@ pcs status resources
   * srv-named	(systemd:named):	 Started v01
   * srv-haproxy	(systemd:haproxy):	 Started v01
 ```
+
 srv-haproxy moved to node v01, quick curl showing that connection to apache comming from node v01
 
 ```
@@ -267,6 +268,7 @@ connection comming from - 192.168.69.201
 
 haproxy migrated to node v01 together with vip.
 
+To revert simply `pcs resource cleanup`
 
 GUI
 ---
