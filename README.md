@@ -30,7 +30,7 @@ after succesful ansible run you should have situation like this:
 `pcs status`
 
 
-Cluster name: aio
+```Cluster name: aio
 Cluster Summary:
   * Stack: corosync
   * Current DC: v01 (version 2.1.2-ada5c3b36e2) - partition with quorum
@@ -51,7 +51,7 @@ Full List of Resources:
 Daemon Status:
   corosync: active/enabled
   pacemaker: active/enabled
-  pcsd: active/enabled
+  pcsd: active/enabled```
 
 
 
