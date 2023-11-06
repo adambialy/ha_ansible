@@ -95,7 +95,6 @@
   when:
     - ha_leader
 
-### TEST during next maintenance
 - name: add service resources 
   shell: "pcs resource create srv-{{ item.vip_service }} systemd:{{ item.vip_service }}"
   with_items:

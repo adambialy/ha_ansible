@@ -4,8 +4,6 @@
 - include_tasks: install.yaml
 - include_tasks: config-corosync.yaml
 - include_tasks: hacluster_user.yaml
-  ### TODO That task is diabled for now
-  ###- include_tasks: config-scripts.yaml
 
 
 
