@@ -1,16 +1,21 @@
-
 Test setup 2 node corosync/pacemaker cluster with external www server.
 ----------------------------------------------------------------------
 
+prerequsites:
+
+3 nodes running ubuntu or debian. Simple script in nodes_setup directory will set named, haproxy and apache on nodes. (TODO - ansible role for setting up nodes)
+For simplicity add all nodes to /etc/hosts
+
 scenario:
 
+- tiny 2 node cluster (not ha strictly speaking as needs to be 3 nodes at least)
 - v01 & v02 - corosync pacemaker nodes (ip ending 201, and 202)
 - v03 - ub22 running apache (ip ending 203)
 - cluster has 2 virtual ip addresses (ending 204 and 205) 
 - also configured 2 services in pacemaker
 - both services managed by pacemaker ocf systemd (ocf - open cluster framework)
-- two services are: - bind, - haproxy (backend pointing to node v03)
-- each service is "bonded" with prefered ip virtual ip address
+- two services are: - dns (named) , - ldap (haproxy, backend pointing to node v03 apache)
+- each service is "bonded" with prefered virtual ip address
 - each service has prefered node and "backup" node
 
 
@@ -19,19 +24,18 @@ ansible
 
 All variables configured in inventory file
 
-
 ansible run:
 
 ansible-playbook ha_cluster.yaml -i ha_cluster_inventory.yaml
 
 
-after succesful ansible run you should have situation like this:
+After succesful run, you should have situation like this:
 
-`pcs status`
-
+'''pcs status'''
 
 ```
-# pcs sattus
+ pcs status
+
 Cluster name: aio
 Cluster Summary:
   * Stack: corosync
@@ -66,7 +70,9 @@ ssh v01 "ps ax" | grep bind
 ssh v02 "ps ax" | grep bind
 ```
 
-process bind isn't running on v02
+Process bind is running on v01, but isn't running on v02
+
+Test if dns server is returning anything.
 
 ```
 dig +time=5 +short @v02 v.localhost    
@@ -74,10 +80,21 @@ dig +time=5 +short @v02 v.localhost
 
 chi ~/corosync_test $ dig +time=5 +short @v01 v.localhost
 127.0.1.1
-
 ```
 
-dig only returns values for "v.local" from v01 (127.0.1.1)
+dig only returns values for "v.local" from v01 (127.0.1.1 - see named.conf)
+
+Lets check if dig against vip is returning anything
+
+```
+dig +time=5 +short @192.168.69.203 v.localhost
+127.0.1.1
+```
+
+It's returning A record v.local from node 1.
+
+
+haproxy/apache
 
 ```
 ssh v01 "ps ax" | grep haproxy
@@ -86,19 +103,18 @@ ssh v02 "ps ax" | grep haproxy
    1260 ?        Sl     0:00 /usr/sbin/haproxy -Ws -f /etc/haproxy/haproxy.cfg -p /run/haproxy.pid -S /run/haproxy-master.sock
 ```
 
-process haproxy is not running on v01
-
+process haproxy is not running on v01, and running on v02.
 
 ```
 curl 192.168.69.204
 connection comming from - 192.168.69.202  
 ```
 
-curl test shows that node which is initiating connection is v02.
+curl test against vip, shows that node which is initiating connection to apache (on v03) is v02.
 
 all good.
 
-same tests against virtual ip addresses:
+last look at the resources
 
 '''pcs resource config'''
 
@@ -124,19 +140,18 @@ pcs resource config
 ```
 
 
-Lets brake some of the configs ans see how it all failing over...
+Let's brake some of the configs ans see how it all failing over...
 
-add some crap to /etc/bind/named.conf.options
+Remove some semicolon from bind config /etc/bind/named.conf.options on node v01.
 
 check if the config is broken:
 
 ```
 named-checkconf /etc/bind/named.conf
-/etc/bind/named.conf.options:24: unknown option 'ddd'
-/etc/bind/named.conf.options:26: unexpected token near '}'
+/etc/bind/named.conf.options:24: missing ';' before '}'
 ```
 
-restart named
+it is broke indeed, restart named
 
 ```
 systemctl restart named
@@ -169,14 +184,16 @@ Failed Resource Actions:
   * srv-named start on v01 returned 'error' because 'failed' at Mon Nov  6 18:00:06 2023 after 2.417s
 ```
 
-service srv-named migrated to v02
+service srv-named migrated to v02 together with it's vip.
 
-now repair config and move service back to prefered node
+Now repair config and move service back to prefered node
 
 ```
 named-checkconf /etc/bind/named.conf ; echo $?
 0
 ```
+
+config check ok.
 
 '''pcs resource cleanup'''
 
@@ -188,6 +205,8 @@ Waiting for 1 reply from the controller
 ... got reply (done)
 ```
 
+watch /var/log/pacemaker/pacemake.log to see messages... and voila
+
 ```
 pcs status resources 
   * vip-dns	(ocf:heartbeat:IPaddr2):	 Started v01
@@ -196,19 +215,25 @@ pcs status resources
   * srv-haproxy	(systemd:haproxy):	 Started v02
 ```
 
-all back to original config
+All back to original config.
 
 
-lets test haproxy failing
+Lets test haproxy failing
 
 currently node v02 replying:
+
+```
+curl 192.168.69.202
+connection comming from - 192.168.69.202 
+```
+and corresponding vip
 
 ```
 curl 192.168.69.204
 connection comming from - 192.168.69.202 
 ```
 
-again, brake slightly config (add one letter to backend), and restart the service
+Again, brake slightly config (add one letter to backend for example), and restart the service
 
 ```
 systemctl restart haproxy
@@ -216,7 +241,7 @@ Job for haproxy.service failed because the control process exited with error cod
 See "systemctl status haproxy.service" and "journalctl -xeu haproxy.service" for details.
 ```
 
-pacemaker log showing the action:
+pacemaker log showing the action...
 
 ```
 Nov 06 18:24:18.011 v01 pacemaker-based     [890] (cib_process_request) 	info: Completed cib_modify operation for section status: OK (rc=0, origin=v02/crmd/45, version=0.18.31)
@@ -224,7 +249,7 @@ Nov 06 18:24:18.011 v01 pacemaker-controld  [895] (process_graph_event) 	info: T
 Nov 06 18:24:18.015 v01 pacemaker-controld  [895] (te_rsc_command) 	notice: Initiating start operation srv-haproxy_start_0 locally on v01 | action 12
 ```
 
-and voila:
+and...
 
 ```
 pcs status resources 
@@ -240,10 +265,15 @@ curl 192.168.69.204
 connection comming from - 192.168.69.201
 ```
 
+haproxy migrated to node v01 together with vip.
 
 
+GUI
+---
 
-
-
-
+Web interface is listening on port 2224 on each cluster node. Authentiaction is use hacluster with configured pam password.
+In ansible it's hacluster_user.yaml . Generate password by: 
+```
+python -c 'import crypt; print crypt.crypt("yorpassword", "$1$hacluste$")'
+```
 
