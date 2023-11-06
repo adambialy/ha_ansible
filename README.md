@@ -31,7 +31,7 @@ ansible-playbook ha_cluster.yaml -i ha_cluster_inventory.yaml
 
 After succesful run, you should have situation like this:
 
-'pcs status'
+`pcs status`
 
 ```
  pcs status
