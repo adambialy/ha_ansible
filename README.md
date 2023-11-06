@@ -2,16 +2,16 @@
 Test setup 2 node corosync/pacemaker cluster with external www server.
 ----------------------------------------------------------------------
 
-3 nodes:
+scenario:
 
-01 & 02 - corosync pacemaker nodes
-03 - ub22 running apache
-
-01 and 02 has 2 virtual ip addresses and 2 configured services in pacemaker managed by pacemaker ocf systemd (ocf - open cluster framework)
-
-two services are:
-- bind
-- haproxy backend pointing to node 03
+- v01 & v02 - corosync pacemaker nodes (ip ending 201, and 202)
+- v03 - ub22 running apache (ip ending 203)
+- cluster has 2 virtual ip addresses (ending 204 and 205) 
+- also configured 2 services in pacemaker
+- both services managed by pacemaker ocf systemd (ocf - open cluster framework)
+- two services are: - bind, - haproxy (backend pointing to node v03)
+- each service is "bonded" with prefered ip virtual ip address
+- each service has prefered node and "backup" node
 
 
 ansible
